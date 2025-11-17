@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn 簡易テスト</title>
+</head>
+<body>
+    <h1>WebAuthn 簡易テスト</h1>
+    <button onclick="testWebAuthn()">WebAuthn テスト実行</button>
+    <pre id="output"></pre>
+
+    <script>
+        function log(msg) {
+            document.getElementById('output').textContent += msg + '\n';
+            console.log(msg);
+        }
+
+        async function testWebAuthn() {
+            document.getElementById('output').textContent = '';
+
+            try {
+                // WebAuthn APIの利用可能性チェック
+                if (!window.PublicKeyCredential) {
+                    log('エラー: WebAuthn APIがサポートされていません');
+                    return;
+                }
+                log('✓ WebAuthn APIが利用可能です');
+
+                // プラットフォーム認証器の利用可能性チェック
+                const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+                log('✓ プラットフォーム認証器: ' + (available ? '利用可能' : '利用不可'));
+
+                // 最小限の設定で登録を試行
+                const challenge = new Uint8Array(32);
+                window.crypto.getRandomValues(challenge);
+
+                const userId = new Uint8Array(32);
+                window.crypto.getRandomValues(userId);
+
+                const publicKeyOptions = {
+                    challenge: challenge,
+                    rp: {
+                        name: "Test",
+                        id: "localhost"
+                    },
+                    user: {
+                        id: userId,
+                        name: "testuser",
+                        displayName: "Test User"
+                    },
+                    pubKeyCredParams: [
+                        { alg: -7, type: "public-key" },  // ES256
+                        { alg: -257, type: "public-key" } // RS256
+                    ],
+                    timeout: 120000,
+                    attestation: "none",
+                    authenticatorSelection: {
+                        userVerification: "preferred"
+                    }
+                };
+
+                log('認証器の呼び出しを開始します...');
+                log('※ Windows Helloのプロンプトが表示されたら、PINを入力または生体認証を実行してください');
+
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyOptions
+                });
+
+                log('✓ 認証情報の作成に成功しました！');
+                log('Credential ID: ' + credential.id.substring(0, 20) + '...');
+
+            } catch (error) {
+                log('✗ エラーが発生しました:');
+                log('  エラー名: ' + error.name);
+                log('  メッセージ: ' + error.message);
+
+                if (error.name === 'NotAllowedError') {
+                    log('\nNotAllowedError の考えられる原因:');
+                    log('  1. Windows Helloのプロンプトでキャンセルを選択した');
+                    log('  2. タイムアウトした（2分以内に操作を完了してください）');
+                    log('  3. Windows HelloのPINが設定されていない');
+                    log('     → 設定 > アカウント > サインインオプション で確認');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
