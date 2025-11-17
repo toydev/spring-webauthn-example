@@ -1,31 +1,28 @@
 package com.example.demo.service;
 
-import com.example.demo.entity.Authenticator;
-import com.example.demo.entity.User;
-import com.example.demo.repository.AuthenticatorRepository;
-import com.example.demo.repository.UserRepository;
+import com.example.demo.model.AuthenticatorInfo;
+import com.example.demo.model.UserInfo;
 import com.yubico.webauthn.CredentialRepository;
 import com.yubico.webauthn.RegisteredCredential;
 import com.yubico.webauthn.data.ByteArray;
 import com.yubico.webauthn.data.PublicKeyCredentialDescriptor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class RegistrationService implements CredentialRepository {
 
-    private final UserRepository userRepository;
-    private final AuthenticatorRepository authenticatorRepository;
+    private final ConcurrentHashMap<String, UserInfo> users = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ByteArray, AuthenticatorInfo> authenticators = new ConcurrentHashMap<>();
 
     @Override
     public Set<PublicKeyCredentialDescriptor> getCredentialIdsForUsername(String username) {
-        return userRepository.findByUsername(username)
+        return Optional.ofNullable(users.get(username))
                 .map(user -> user.getAuthenticators().stream()
                         .map(auth -> PublicKeyCredentialDescriptor.builder()
                                 .id(new ByteArray(auth.getCredentialId()))
@@ -36,56 +33,71 @@ public class RegistrationService implements CredentialRepository {
 
     @Override
     public Optional<ByteArray> getUserHandleForUsername(String username) {
-        return userRepository.findByUsername(username)
+        return Optional.ofNullable(users.get(username))
                 .map(user -> new ByteArray(user.getUserHandle()));
     }
 
     @Override
     public Optional<String> getUsernameForUserHandle(ByteArray userHandle) {
-        return userRepository.findByUserHandle(userHandle.getBytes())
-                .map(User::getUsername);
+        return users.values().stream()
+                .filter(user -> Arrays.equals(user.getUserHandle(), userHandle.getBytes()))
+                .map(UserInfo::getUsername)
+                .findFirst();
     }
 
     @Override
     public Optional<RegisteredCredential> lookup(ByteArray credentialId, ByteArray userHandle) {
-        return authenticatorRepository.findByCredentialId(credentialId.getBytes())
-                .map(auth -> RegisteredCredential.builder()
-                        .credentialId(new ByteArray(auth.getCredentialId()))
-                        .userHandle(new ByteArray(auth.getUser().getUserHandle()))
-                        .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                        .signatureCount(auth.getSignCount())
-                        .build());
+        return Optional.ofNullable(authenticators.get(credentialId))
+                .filter(auth -> {
+                    UserInfo user = users.get(auth.getUsername());
+                    return user != null && Arrays.equals(user.getUserHandle(), userHandle.getBytes());
+                })
+                .map(auth -> {
+                    UserInfo user = users.get(auth.getUsername());
+                    return RegisteredCredential.builder()
+                            .credentialId(new ByteArray(auth.getCredentialId()))
+                            .userHandle(new ByteArray(user.getUserHandle()))
+                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
+                            .signatureCount(auth.getSignCount())
+                            .build();
+                });
     }
 
     @Override
     public Set<RegisteredCredential> lookupAll(ByteArray credentialId) {
-        return authenticatorRepository.findByCredentialId(credentialId.getBytes())
-                .map(auth -> RegisteredCredential.builder()
-                        .credentialId(new ByteArray(auth.getCredentialId()))
-                        .userHandle(new ByteArray(auth.getUser().getUserHandle()))
-                        .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                        .signatureCount(auth.getSignCount())
-                        .build())
+        return Optional.ofNullable(authenticators.get(credentialId))
+                .map(auth -> {
+                    UserInfo user = users.get(auth.getUsername());
+                    return RegisteredCredential.builder()
+                            .credentialId(new ByteArray(auth.getCredentialId()))
+                            .userHandle(new ByteArray(user.getUserHandle()))
+                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
+                            .signatureCount(auth.getSignCount())
+                            .build();
+                })
                 .stream()
                 .collect(Collectors.toSet());
     }
 
-    @Transactional
-    public void saveUser(User user) {
-        userRepository.save(user);
+    public void saveUser(UserInfo user) {
+        users.put(user.getUsername(), user);
     }
 
-    @Transactional
-    public void saveAuthenticator(Authenticator authenticator) {
-        authenticatorRepository.save(authenticator);
+    public void saveAuthenticator(AuthenticatorInfo authenticator) {
+        authenticators.put(new ByteArray(authenticator.getCredentialId()), authenticator);
+
+        // ユーザーの認証器リストにも追加
+        UserInfo user = users.get(authenticator.getUsername());
+        if (user != null && user.getAuthenticators().stream()
+                .noneMatch(a -> Arrays.equals(a.getCredentialId(), authenticator.getCredentialId()))) {
+            user.getAuthenticators().add(authenticator);
+        }
     }
 
-    @Transactional
     public void updateSignCount(ByteArray credentialId, long signCount) {
-        authenticatorRepository.findByCredentialId(credentialId.getBytes())
-                .ifPresent(auth -> {
-                    auth.setSignCount(signCount);
-                    authenticatorRepository.save(auth);
-                });
+        AuthenticatorInfo auth = authenticators.get(credentialId);
+        if (auth != null) {
+            auth.setSignCount(signCount);
+        }
     }
 }

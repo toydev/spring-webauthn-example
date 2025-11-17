@@ -1,15 +1,13 @@
 package com.example.demo.service;
 
-import com.example.demo.entity.Authenticator;
-import com.example.demo.entity.User;
-import com.example.demo.repository.UserRepository;
+import com.example.demo.model.AuthenticatorInfo;
+import com.example.demo.model.UserInfo;
 import com.yubico.webauthn.*;
 import com.yubico.webauthn.data.*;
 import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 
@@ -19,12 +17,17 @@ public class WebAuthnService {
 
     private final RelyingParty relyingParty;
     private final RegistrationService registrationService;
-    private final UserRepository userRepository;
-    private final SecureRandom random = new SecureRandom();
+    private final SecureRandom random;
 
     public PublicKeyCredentialCreationOptions startRegistration(String username, String displayName) {
-        byte[] userHandle = new byte[32];
-        random.nextBytes(userHandle);
+        // 既存ユーザーの userHandle を取得、なければ新規生成
+        byte[] userHandle = registrationService.getUserHandleForUsername(username)
+                .map(ByteArray::getBytes)
+                .orElseGet(() -> {
+                    byte[] newHandle = new byte[32];
+                    random.nextBytes(newHandle);
+                    return newHandle;
+                });
 
         UserIdentity userIdentity = UserIdentity.builder()
                 .name(username)
@@ -32,7 +35,6 @@ public class WebAuthnService {
                 .id(new ByteArray(userHandle))
                 .build();
 
-        // シンプルな設定：どの認証器でも許可
         StartRegistrationOptions options = StartRegistrationOptions.builder()
                 .user(userIdentity)
                 .timeout(120000L)
@@ -41,7 +43,6 @@ public class WebAuthnService {
         return relyingParty.startRegistration(options);
     }
 
-    @Transactional
     public void finishRegistration(String username, String displayName,
                                    PublicKeyCredentialCreationOptions request,
                                    PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> credential)
@@ -54,22 +55,29 @@ public class WebAuthnService {
 
         RegistrationResult result = relyingParty.finishRegistration(options);
 
-        User user = userRepository.findByUsername(username)
-                .orElseGet(() -> {
-                    User newUser = new User(username, displayName, request.getUser().getId().getBytes());
-                    return newUser;
-                });
+        // 既存ユーザーがいなければ新規作成
+        UserInfo user = registrationService.getUserHandleForUsername(username)
+                .map(userHandle -> {
+                    // 既存ユーザーは既に保存されているのでそのまま使う
+                    // ここでは何もしない（認証器だけ追加）
+                    return (UserInfo) null;
+                })
+                .orElseGet(() -> new UserInfo(username, displayName, request.getUser().getId().getBytes()));
 
-        Authenticator authenticator = new Authenticator(
+        // 新規ユーザーの場合のみ保存
+        if (user != null) {
+            registrationService.saveUser(user);
+        }
+
+        AuthenticatorInfo authenticator = new AuthenticatorInfo(
                 result.getKeyId().getId().getBytes(),
                 result.getPublicKeyCose().getBytes(),
                 result.getSignatureCount(),
                 result.getAaguid().getBytes(),
-                user
+                username
         );
 
-        user.getAuthenticators().add(authenticator);
-        registrationService.saveUser(user);
+        registrationService.saveAuthenticator(authenticator);
     }
 
     public AssertionRequest startAuthentication(String username) {
@@ -80,7 +88,6 @@ public class WebAuthnService {
         return relyingParty.startAssertion(options);
     }
 
-    @Transactional
     public void finishAuthentication(AssertionRequest request,
                                      PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> credential)
             throws AssertionFailedException {
