@@ -9,6 +9,7 @@ import com.yubico.webauthn.exception.RegistrationFailedException;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,20 +26,18 @@ public class WebAuthnController {
     private final Map<String, AssertionRequest> assertionRequests = new ConcurrentHashMap<>();
 
     @PostMapping("/register/start")
-    public ResponseEntity<?> startRegistration(@RequestBody RegistrationStartRequest request) {
+    public ResponseEntity<String> startRegistration(@RequestBody RegistrationStartRequest request) {
         try {
             PublicKeyCredentialCreationOptions options =
                     webAuthnService.startRegistration(request.getUsername(), request.getDisplayName());
             registrationRequests.put(request.getUsername(), options);
 
-            // デバッグ用ログ
-            System.out.println("Registration options: " + options);
-
-            return ResponseEntity.ok(options);
-        } catch (Exception e) {
-            e.printStackTrace();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(options.toJson());
+        } catch (JsonProcessingException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
+                    .body("{\"error\": \"Failed to serialize registration options\"}");
         }
     }
 
@@ -70,14 +69,17 @@ public class WebAuthnController {
     }
 
     @PostMapping("/authenticate/start")
-    public ResponseEntity<?> startAuthentication(@RequestBody AuthenticationStartRequest request) {
+    public ResponseEntity<String> startAuthentication(@RequestBody AuthenticationStartRequest request) {
         try {
             AssertionRequest assertionRequest = webAuthnService.startAuthentication(request.getUsername());
             assertionRequests.put(request.getUsername(), assertionRequest);
-            return ResponseEntity.ok(assertionRequest);
-        } catch (Exception e) {
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(assertionRequest.toJson());
+        } catch (JsonProcessingException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
+                    .body("{\"error\": \"Failed to serialize authentication options\"}");
         }
     }
 

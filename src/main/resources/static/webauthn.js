@@ -48,39 +48,6 @@ async function register() {
             return;
         }
 
-        // 拡張機能のクリーンアップ
-        if (options.extensions) {
-            // null, undefined, 空文字列の値を持つプロパティを削除
-            Object.keys(options.extensions).forEach(key => {
-                if (options.extensions[key] === null ||
-                    options.extensions[key] === undefined ||
-                    options.extensions[key] === '') {
-                    delete options.extensions[key];
-                }
-            });
-            // 拡張が空になった場合は削除
-            if (Object.keys(options.extensions).length === 0) {
-                delete options.extensions;
-            }
-        }
-
-        // authenticatorSelectionの修正
-        if (options.authenticatorSelection === null || options.authenticatorSelection === undefined) {
-            delete options.authenticatorSelection;
-        } else if (options.authenticatorSelection) {
-            // null値を持つプロパティを削除
-            Object.keys(options.authenticatorSelection).forEach(key => {
-                if (options.authenticatorSelection[key] === null ||
-                    options.authenticatorSelection[key] === undefined) {
-                    delete options.authenticatorSelection[key];
-                }
-            });
-            // 空になった場合は削除
-            if (Object.keys(options.authenticatorSelection).length === 0) {
-                delete options.authenticatorSelection;
-            }
-        }
-
         options.user.id = base64urlToBuffer(options.user.id);
         options.challenge = base64urlToBuffer(options.challenge);
 
@@ -91,18 +58,7 @@ async function register() {
             }));
         }
 
-        console.log('Calling navigator.credentials.create with options:', options);
-
-        let credential;
-        try {
-            credential = await navigator.credentials.create({ publicKey: options });
-            console.log('Credential created successfully:', credential);
-        } catch (credError) {
-            console.error('navigator.credentials.create failed:', credError);
-            console.error('Error name:', credError.name);
-            console.error('Error message:', credError.message);
-            throw credError;
-        }
+        const credential = await navigator.credentials.create({ publicKey: options });
 
         const credentialForServer = {
             id: credential.id,
@@ -154,29 +110,12 @@ async function authenticate() {
 
         const options = await startResponse.json();
 
-        console.log('Authentication options received:', options);
-
         if (options.error) {
             showMessage('authMessage', 'エラー: ' + options.error, true);
             return;
         }
 
         const publicKey = options.publicKeyCredentialRequestOptions;
-        console.log('publicKey:', publicKey);
-
-        // 拡張機能のクリーンアップ
-        if (publicKey.extensions) {
-            Object.keys(publicKey.extensions).forEach(key => {
-                if (publicKey.extensions[key] === null ||
-                    publicKey.extensions[key] === undefined ||
-                    publicKey.extensions[key] === '') {
-                    delete publicKey.extensions[key];
-                }
-            });
-            if (Object.keys(publicKey.extensions).length === 0) {
-                delete publicKey.extensions;
-            }
-        }
 
         publicKey.challenge = base64urlToBuffer(publicKey.challenge);
         publicKey.allowCredentials = publicKey.allowCredentials.map(cred => {
