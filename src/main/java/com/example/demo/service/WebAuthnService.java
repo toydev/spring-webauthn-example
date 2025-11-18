@@ -121,8 +121,8 @@ public class WebAuthnService implements CredentialRepository {
         return relyingParty.startAssertion(options);
     }
 
-    public void finishAuthentication(AssertionRequest request,
-                                     PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> credential)
+    public String finishAuthentication(AssertionRequest request,
+                                       PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> credential)
             throws AssertionFailedException {
 
         FinishAssertionOptions options = FinishAssertionOptions.builder()
@@ -130,7 +130,10 @@ public class WebAuthnService implements CredentialRepository {
                 .response(credential)
                 .build();
 
-        relyingParty.finishAssertion(options);
+        AssertionResult result = relyingParty.finishAssertion(options);
+
+        // 認証されたユーザー名を返す
+        return result.getUsername();
     }
 
     // ===== CredentialRepository 実装（Yubicoライブラリが呼び出す） =====

@@ -176,4 +176,30 @@ public class WebAuthnBackend {
             user.getAuthenticators().add(authenticator);
         }
     }
+
+    /**
+     * 特定ユーザーの特定認証器を削除する。
+     * 実際のバックエンドサーバーでは、認可チェック（削除者=所有者の確認）が必須。
+     */
+    public boolean deleteAuthenticator(String username, byte[] credentialId) {
+        ByteArray credId = new ByteArray(credentialId);
+        AuthenticatorInfo auth = authenticators.get(credId);
+
+        // 認証器が存在し、指定されたユーザーのものであることを確認
+        if (auth == null || !auth.getUsername().equals(username)) {
+            return false;
+        }
+
+        // authenticatorsマップから削除
+        authenticators.remove(credId);
+
+        // ユーザーの認証器リストからも削除
+        UserInfo user = users.get(username);
+        if (user != null) {
+            user.getAuthenticators().removeIf(a ->
+                new ByteArray(a.getCredentialId()).equals(credId));
+        }
+
+        return true;
+    }
 }

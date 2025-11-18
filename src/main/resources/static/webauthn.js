@@ -155,11 +155,81 @@ async function authenticate() {
         const result = await finishResponse.json();
 
         if (result.success) {
-            showMessage('authMessage', '認証に成功しました！');
+            // 認証成功: 管理画面にリダイレクト
+            location.href = '/';
         } else {
             showMessage('authMessage', 'エラー: ' + (result.error || '不明なエラー'), true);
         }
     } catch (error) {
         showMessage('authMessage', 'エラー: ' + error.message, true);
+    }
+}
+
+async function addAuthenticator() {
+    // 認証済みユーザーが新しい認証器を追加する
+    // currentUsernameはThymeleafから埋め込まれたグローバル変数
+    const username = currentUsername;
+
+    if (!username) {
+        showMessage('addMessage', 'セッションが切れています。再ログインしてください。', true);
+        return;
+    }
+
+    try {
+        const startResponse = await fetch('/api/webauthn/register/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+
+        const options = await startResponse.json();
+
+        if (options.error) {
+            showMessage('addMessage', 'エラー: ' + options.error, true);
+            return;
+        }
+
+        options.user.id = base64urlToBuffer(options.user.id);
+        options.challenge = base64urlToBuffer(options.challenge);
+
+        if (options.excludeCredentials) {
+            options.excludeCredentials = options.excludeCredentials.map(cred => ({
+                ...cred,
+                id: base64urlToBuffer(cred.id)
+            }));
+        }
+
+        const credential = await navigator.credentials.create({ publicKey: options });
+
+        const credentialForServer = {
+            id: credential.id,
+            rawId: bufferToBase64url(credential.rawId),
+            response: {
+                attestationObject: bufferToBase64url(credential.response.attestationObject),
+                clientDataJSON: bufferToBase64url(credential.response.clientDataJSON)
+            },
+            type: credential.type,
+            clientExtensionResults: credential.getClientExtensionResults()
+        };
+
+        const finishResponse = await fetch('/api/webauthn/register/finish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username,
+                credential: credentialForServer
+            })
+        });
+
+        const result = await finishResponse.json();
+
+        if (result.success) {
+            // 認証器追加成功: ページをリロードして一覧を更新
+            location.href = '/';
+        } else {
+            showMessage('addMessage', 'エラー: ' + (result.error || '不明なエラー'), true);
+        }
+    } catch (error) {
+        showMessage('addMessage', 'エラー: ' + error.message, true);
     }
 }
