@@ -117,6 +117,7 @@
         <div class="container">
             <h2>新規登録</h2>
             <input type="text" id="regUsername" placeholder="ユーザー名">
+            <input type="text" id="regNickname" placeholder="デバイス名（例: Windows Hello、iPhone）">
             <button onclick="register()">登録</button>
             <div id="regMessage"></div>
         </div>
@@ -148,12 +149,14 @@
             <table th:if="${!authenticators.isEmpty()}">
                 <thead>
                     <tr>
+                        <th>デバイス名</th>
                         <th>Credential ID</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="auth : ${authenticators}">
+                        <td th:text="${auth.nickname != null ? auth.nickname : '(名前なし)'}">device-name</td>
                         <td class="credential-id" th:text="${auth.credentialIdBase64}">credential-id</td>
                         <td>
                             <form method="POST" action="/authenticator/delete" style="display:inline;">
@@ -168,6 +171,7 @@
 
         <div class="container">
             <h2>新しい認証器を追加</h2>
+            <input type="text" id="addNickname" placeholder="デバイス名（例: Windows Hello、iPhone）">
             <button onclick="addAuthenticator()">認証器を追加</button>
             <div id="addMessage"></div>
         </div>

@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>webauthn-demo</artifactId>
+	<artifactId>webauthn-demo1-basic</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>demo</name>
-	<description>Demo project for Spring Boot</description>
+	<name>demo1-basic</name>
+	<description>WebAuthn Demo - Basic Implementation</description>
 	<url/>
 	<licenses>
 		<license/>

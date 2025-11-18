@@ -49,7 +49,8 @@ public class WebAuthnController {
                     .orElse(List.of())
                     .stream()
                     .map(auth -> new AuthenticatorDto(
-                            Base64.getUrlEncoder().withoutPadding().encodeToString(auth.getCredentialId())
+                            Base64.getUrlEncoder().withoutPadding().encodeToString(auth.getCredentialId()),
+                            auth.getNickname()
                     ))
                     .collect(Collectors.toList());
 
@@ -128,7 +129,8 @@ public class WebAuthnController {
             webAuthnService.finishRegistration(
                     request.getUsername(),
                     options,
-                    request.getCredential()
+                    request.getCredential(),
+                    request.getNickname()
             );
 
             session.removeAttribute(REGISTRATION_REQUEST_KEY);
@@ -193,6 +195,7 @@ public class WebAuthnController {
     @Data
     public static class AuthenticatorDto {
         private final String credentialIdBase64;
+        private final String nickname;  // 認証器の表示名
     }
 
     @Data
@@ -204,6 +207,7 @@ public class WebAuthnController {
     public static class RegistrationFinishRequest {
         private String username;
         private PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> credential;
+        private String nickname;  // 認証器の表示名（アプリケーション層の機能）
     }
 
     @Data
