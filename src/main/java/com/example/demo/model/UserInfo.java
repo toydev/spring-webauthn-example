@@ -10,10 +10,10 @@ import java.util.List;
 @AllArgsConstructor
 public class UserInfo {
     private String username;
-    private byte[] userHandle;
+    private String userHandle;  // Base64-encoded (32 bytes → 44 characters)
     private List<AuthenticatorInfo> authenticators;
 
-    public UserInfo(String username, byte[] userHandle) {
+    public UserInfo(String username, String userHandle) {
         this.username = username;
         this.userHandle = userHandle;
         this.authenticators = new ArrayList<>();

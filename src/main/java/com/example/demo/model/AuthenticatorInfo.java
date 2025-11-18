@@ -6,9 +6,9 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class AuthenticatorInfo {
-    private byte[] credentialId;
-    private byte[] publicKey;
+    private String credentialId;  // Base64-encoded
+    private String publicKey;     // Base64-encoded
     private long signCount;
-    private byte[] aaguid;
+    private String aaguid;        // Base64-encoded
     private String username;
 }
