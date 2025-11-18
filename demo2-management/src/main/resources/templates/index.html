@@ -98,11 +98,6 @@
             padding: 5px 15px;
             font-size: 14px;
         }
-        .credential-id {
-            font-family: monospace;
-            font-size: 12px;
-            word-break: break-all;
-        }
     </style>
 </head>
 <body>
@@ -150,14 +145,12 @@
                 <thead>
                     <tr>
                         <th>デバイス名</th>
-                        <th>Credential ID</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="auth : ${authenticators}">
                         <td th:text="${auth.nickname != null ? auth.nickname : '(名前なし)'}">device-name</td>
-                        <td class="credential-id" th:text="${auth.credentialIdBase64}">credential-id</td>
                         <td>
                             <form method="POST" action="/authenticator/delete" style="display:inline;">
                                 <input type="hidden" name="credentialId" th:value="${auth.credentialIdBase64}" />
