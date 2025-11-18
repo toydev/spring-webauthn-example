@@ -135,9 +135,7 @@ public class WebAuthnService implements CredentialRepository {
                 .response(credential)
                 .build();
 
-        AssertionResult result = relyingParty.finishAssertion(options);
-
-        // 認証成功（特に追加処理なし）
+        relyingParty.finishAssertion(options);
     }
 
     // ===== CredentialRepository 実装（Yubicoライブラリが呼び出す） =====
