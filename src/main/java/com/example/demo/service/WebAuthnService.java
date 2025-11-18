@@ -9,7 +9,6 @@ import com.yubico.webauthn.exception.RegistrationFailedException;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,15 +37,29 @@ public class WebAuthnService implements CredentialRepository {
     }
 
     // ===== データストレージ（インメモリ） =====
-    private final ConcurrentHashMap<String, UserInfo> users = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, AuthenticatorInfo> authenticators = new ConcurrentHashMap<>();  // key: Base64-encoded credentialId
+    //
+    // 【設計の前提】
+    // - username: アプリケーション層の一意で不変な識別子（ユーザーがログイン時に入力）
+    // - userHandle: WebAuthn層の一意で不変な識別子（サーバーが生成、プライバシー保護）
+    //
+    // 【相互参照の必要性】
+    // - username → UserInfo: 登録・認証開始時に必要（ユーザーが入力するのはusername）
+    // - userHandle → UserInfo: 認証完了時に必要（WebAuthnプロトコルで使用）
+    // - credentialId → AuthenticatorInfo → UserInfo: 認証時の署名検証に必要
+    //
+    // 【現在の実装】
+    // - users: username をキーとして高速アクセス
+    // - authenticators: credentialId をキーとして高速アクセス
+    // - AuthenticatorInfo.username: 逆引き用（credentialId → username → UserInfo）
+    //
+    private final ConcurrentHashMap<String, UserInfo> users = new ConcurrentHashMap<>();  // key: username
+    private final ConcurrentHashMap<ByteArray, AuthenticatorInfo> authenticators = new ConcurrentHashMap<>();  // key: credentialId
 
     // ===== WebAuthn登録・認証フロー =====
 
     public PublicKeyCredentialCreationOptions startRegistration(String username) {
-        byte[] userHandle = getUserHandleForUsername(username)
-                .map(ByteArray::getBytes)
-                .orElseGet(() -> Base64.getDecoder().decode(generateUserHandle()));
+        ByteArray userHandle = getUserHandleForUsername(username)
+                .orElseGet(() -> new ByteArray(generateUserHandle()));
 
         // displayName: 認証器の認証画面に表示されるユーザーの表示名
         // WebAuthn仕様で必須だが、本デモでは username をそのまま使用
@@ -55,7 +68,7 @@ public class WebAuthnService implements CredentialRepository {
         UserIdentity userIdentity = UserIdentity.builder()
                 .name(username)
                 .displayName(displayName)
-                .id(new ByteArray(userHandle))
+                .id(userHandle)
                 .build();
 
         StartRegistrationOptions options = StartRegistrationOptions.builder()
@@ -87,7 +100,7 @@ public class WebAuthnService implements CredentialRepository {
                 })
                 .orElseGet(() -> new UserInfo(
                         username,
-                        Base64.getEncoder().encodeToString(request.getUser().getId().getBytes())
+                        request.getUser().getId().getBytes()
                 ));
 
         // 新規ユーザーの場合のみ保存
@@ -96,10 +109,10 @@ public class WebAuthnService implements CredentialRepository {
         }
 
         AuthenticatorInfo authenticator = new AuthenticatorInfo(
-                Base64.getEncoder().encodeToString(result.getKeyId().getId().getBytes()),
-                Base64.getEncoder().encodeToString(result.getPublicKeyCose().getBytes()),
+                result.getKeyId().getId().getBytes(),
+                result.getPublicKeyCose().getBytes(),
                 result.getSignatureCount(),
-                Base64.getEncoder().encodeToString(result.getAaguid().getBytes()),
+                result.getAaguid().getBytes(),
                 username
         );
 
@@ -140,7 +153,7 @@ public class WebAuthnService implements CredentialRepository {
         return Optional.ofNullable(users.get(username))
                 .map(user -> user.getAuthenticators().stream()
                         .map(auth -> PublicKeyCredentialDescriptor.builder()
-                                .id(new ByteArray(Base64.getDecoder().decode(auth.getCredentialId())))
+                                .id(new ByteArray(auth.getCredentialId()))
                                 .build())
                         .collect(Collectors.toSet()))
                 .orElse(Set.of());
@@ -149,34 +162,30 @@ public class WebAuthnService implements CredentialRepository {
     @Override
     public Optional<ByteArray> getUserHandleForUsername(String username) {
         return Optional.ofNullable(users.get(username))
-                .map(user -> new ByteArray(Base64.getDecoder().decode(user.getUserHandle())));
+                .map(user -> new ByteArray(user.getUserHandle()));
     }
 
     @Override
     public Optional<String> getUsernameForUserHandle(ByteArray userHandle) {
-        String userHandleBase64 = Base64.getEncoder().encodeToString(userHandle.getBytes());
         return users.values().stream()
-                .filter(user -> user.getUserHandle().equals(userHandleBase64))
+                .filter(user -> userHandle.equals(new ByteArray(user.getUserHandle())))
                 .map(UserInfo::getUsername)
                 .findFirst();
     }
 
     @Override
     public Optional<RegisteredCredential> lookup(ByteArray credentialId, ByteArray userHandle) {
-        String credentialIdBase64 = Base64.getEncoder().encodeToString(credentialId.getBytes());
-        String userHandleBase64 = Base64.getEncoder().encodeToString(userHandle.getBytes());
-
-        return Optional.ofNullable(authenticators.get(credentialIdBase64))
+        return Optional.ofNullable(authenticators.get(credentialId))
                 .filter(auth -> {
                     UserInfo user = users.get(auth.getUsername());
-                    return user != null && user.getUserHandle().equals(userHandleBase64);
+                    return user != null && userHandle.equals(new ByteArray(user.getUserHandle()));
                 })
                 .map(auth -> {
                     UserInfo user = users.get(auth.getUsername());
                     return RegisteredCredential.builder()
-                            .credentialId(new ByteArray(Base64.getDecoder().decode(auth.getCredentialId())))
-                            .userHandle(new ByteArray(Base64.getDecoder().decode(user.getUserHandle())))
-                            .publicKeyCose(new ByteArray(Base64.getDecoder().decode(auth.getPublicKey())))
+                            .credentialId(new ByteArray(auth.getCredentialId()))
+                            .userHandle(new ByteArray(user.getUserHandle()))
+                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
                             .signatureCount(auth.getSignCount())
                             .build();
                 });
@@ -184,15 +193,13 @@ public class WebAuthnService implements CredentialRepository {
 
     @Override
     public Set<RegisteredCredential> lookupAll(ByteArray credentialId) {
-        String credentialIdBase64 = Base64.getEncoder().encodeToString(credentialId.getBytes());
-
-        return Optional.ofNullable(authenticators.get(credentialIdBase64))
+        return Optional.ofNullable(authenticators.get(credentialId))
                 .map(auth -> {
                     UserInfo user = users.get(auth.getUsername());
                     return RegisteredCredential.builder()
-                            .credentialId(new ByteArray(Base64.getDecoder().decode(auth.getCredentialId())))
-                            .userHandle(new ByteArray(Base64.getDecoder().decode(user.getUserHandle())))
-                            .publicKeyCose(new ByteArray(Base64.getDecoder().decode(auth.getPublicKey())))
+                            .credentialId(new ByteArray(auth.getCredentialId()))
+                            .userHandle(new ByteArray(user.getUserHandle()))
+                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
                             .signatureCount(auth.getSignCount())
                             .build();
                 })
@@ -207,19 +214,18 @@ public class WebAuthnService implements CredentialRepository {
     }
 
     private void saveAuthenticator(AuthenticatorInfo authenticator) {
-        authenticators.put(authenticator.getCredentialId(), authenticator);
+        authenticators.put(new ByteArray(authenticator.getCredentialId()), authenticator);
 
         // ユーザーの認証器リストにも追加
         UserInfo user = users.get(authenticator.getUsername());
         if (user != null && user.getAuthenticators().stream()
-                .noneMatch(a -> a.getCredentialId().equals(authenticator.getCredentialId()))) {
+                .noneMatch(a -> new ByteArray(a.getCredentialId()).equals(new ByteArray(authenticator.getCredentialId())))) {
             user.getAuthenticators().add(authenticator);
         }
     }
 
     private void updateSignCount(ByteArray credentialId, long signCount) {
-        String credentialIdBase64 = Base64.getEncoder().encodeToString(credentialId.getBytes());
-        AuthenticatorInfo auth = authenticators.get(credentialIdBase64);
+        AuthenticatorInfo auth = authenticators.get(credentialId);
         if (auth != null) {
             auth.setSignCount(signCount);
         }
@@ -236,14 +242,13 @@ public class WebAuthnService implements CredentialRepository {
      *   <li>仕様上64バイト未満のユニーク値であること</li>
      *   <li>本実装では32バイトの乱数を使用（衝突確率は約 1/2^256 ≈ 10^-77 で天文学的に低い）</li>
      *   <li>実プロジェクトではデータベースのUNIQUE制約で万が一の衝突を検出することを推奨</li>
-     *   <li>Base64エンコード後は44文字（データベースではVARCHAR(44)で格納可能）</li>
      * </ul>
      *
-     * @return Base64エンコードされたユーザーハンドル（44文字）
+     * @return 32バイトのランダムなユーザーハンドル
      */
-    private String generateUserHandle() {
+    private byte[] generateUserHandle() {
         byte[] handle = new byte[32];
         random.nextBytes(handle);
-        return Base64.getEncoder().encodeToString(handle);
+        return handle;
     }
 }
