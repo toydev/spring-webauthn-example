@@ -23,7 +23,18 @@ public class WebAuthnService implements CredentialRepository {
     public WebAuthnService() {
         this.random = new SecureRandom();
 
-        // RelyingParty の設定
+        // ===== 認証依頼側（このサーバーアプリケーション）の設定 =====
+        //
+        // RelyingPartyIdentity: このアプリケーション自体の識別情報
+        //
+        // - id: RP ID（通常はドメイン名、本番環境なら "example.com" など）
+        //   認証器が生成する credentialId はこの RP ID に紐付けられる（フィッシング対策）
+        //   【重要】origins のホスト部分と一致する必要がある
+        //   例: id="localhost" → origins="http://localhost:8080"
+        //
+        // - name: 認証器の画面に表示される人間が読める名前
+        //   認証器によっては表示されない場合もある（Windows Hello では表示されない）
+        //
         RelyingPartyIdentity rpIdentity = RelyingPartyIdentity.builder()
                 .id("localhost")
                 .name("WebAuthn Demo")
