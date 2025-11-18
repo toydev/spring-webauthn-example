@@ -1,7 +1,8 @@
 package com.example.demo.service;
 
-import com.example.demo.model.AuthenticatorInfo;
-import com.example.demo.model.UserInfo;
+import com.example.demo.backend.AuthenticatorInfo;
+import com.example.demo.backend.UserInfo;
+import com.example.demo.backend.WebAuthnBackend;
 import com.yubico.webauthn.*;
 import com.yubico.webauthn.data.*;
 import com.yubico.webauthn.exception.AssertionFailedException;
@@ -9,9 +10,9 @@ import com.yubico.webauthn.exception.RegistrationFailedException;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,8 +20,10 @@ public class WebAuthnService implements CredentialRepository {
 
     private final RelyingParty relyingParty;
     private final SecureRandom random;
+    private final WebAuthnBackend backend;
 
-    public WebAuthnService() {
+    public WebAuthnService(WebAuthnBackend backend) {
+        this.backend = backend;
         this.random = new SecureRandom();
 
         // ===== 認証依頼側（このサーバーアプリケーション）の設定 =====
@@ -46,25 +49,6 @@ public class WebAuthnService implements CredentialRepository {
                 .origins(Set.of("http://localhost:8080"))
                 .build();
     }
-
-    // ===== データストレージ（インメモリ） =====
-    //
-    // 【設計の前提】
-    // - username: アプリケーション層の一意で不変な識別子（ユーザーがログイン時に入力）
-    // - userHandle: WebAuthn層の一意で不変な識別子（サーバーが生成、プライバシー保護）
-    //
-    // 【相互参照の必要性】
-    // - username → UserInfo: 登録・認証開始時に必要（ユーザーが入力するのはusername）
-    // - userHandle → UserInfo: 認証完了時に必要（WebAuthnプロトコルで使用）
-    // - credentialId → AuthenticatorInfo → UserInfo: 認証時の署名検証に必要
-    //
-    // 【現在の実装】
-    // - users: username をキーとして高速アクセス
-    // - authenticators: credentialId をキーとして高速アクセス
-    // - AuthenticatorInfo.username: 逆引き用（credentialId → username → UserInfo）
-    //
-    private final ConcurrentHashMap<String, UserInfo> users = new ConcurrentHashMap<>();  // key: username
-    private final ConcurrentHashMap<ByteArray, AuthenticatorInfo> authenticators = new ConcurrentHashMap<>();  // key: credentialId
 
     // ===== WebAuthn登録・認証フロー =====
 
@@ -116,7 +100,7 @@ public class WebAuthnService implements CredentialRepository {
 
         // 新規ユーザーの場合のみ保存
         if (user != null) {
-            saveUser(user);
+            backend.saveUser(user);
         }
 
         AuthenticatorInfo authenticator = new AuthenticatorInfo(
@@ -126,7 +110,7 @@ public class WebAuthnService implements CredentialRepository {
                 username
         );
 
-        saveAuthenticator(authenticator);
+        backend.saveAuthenticator(authenticator);
     }
 
     public AssertionRequest startAuthentication(String username) {
@@ -150,79 +134,52 @@ public class WebAuthnService implements CredentialRepository {
     }
 
     // ===== CredentialRepository 実装（Yubicoライブラリが呼び出す） =====
+    //
+    // WebAuthnServiceはYubicoライブラリのCredentialRepositoryインターフェースを実装している。
+    // Yubicoライブラリから呼び出されるため、このクラスに実装を保持する必要がある。
+    // データアクセスはWebAuthnBackend経由で行う。
 
     @Override
     public Set<PublicKeyCredentialDescriptor> getCredentialIdsForUsername(String username) {
-        return Optional.ofNullable(users.get(username))
-                .map(user -> user.getAuthenticators().stream()
-                        .map(auth -> PublicKeyCredentialDescriptor.builder()
-                                .id(new ByteArray(auth.getCredentialId()))
-                                .build())
-                        .collect(Collectors.toSet()))
-                .orElse(Set.of());
+        List<byte[]> credentialIds = backend.findCredentialIdsByUsername(username);
+        return credentialIds.stream()
+                .map(credId -> PublicKeyCredentialDescriptor.builder()
+                        .id(new ByteArray(credId))
+                        .build())
+                .collect(Collectors.toSet());
     }
 
     @Override
     public Optional<ByteArray> getUserHandleForUsername(String username) {
-        return Optional.ofNullable(users.get(username))
-                .map(user -> new ByteArray(user.getUserHandle()));
+        return backend.findUserHandleByUsername(username)
+                .map(ByteArray::new);
     }
 
     @Override
     public Optional<String> getUsernameForUserHandle(ByteArray userHandle) {
-        return users.values().stream()
-                .filter(user -> userHandle.equals(new ByteArray(user.getUserHandle())))
-                .map(UserInfo::getUsername)
-                .findFirst();
+        return backend.findUsernameByUserHandle(userHandle.getBytes());
     }
 
     @Override
     public Optional<RegisteredCredential> lookup(ByteArray credentialId, ByteArray userHandle) {
-        return Optional.ofNullable(authenticators.get(credentialId))
-                .filter(auth -> {
-                    UserInfo user = users.get(auth.getUsername());
-                    return user != null && userHandle.equals(new ByteArray(user.getUserHandle()));
-                })
-                .map(auth -> {
-                    UserInfo user = users.get(auth.getUsername());
-                    return RegisteredCredential.builder()
-                            .credentialId(new ByteArray(auth.getCredentialId()))
-                            .userHandle(new ByteArray(user.getUserHandle()))
-                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                            .build();
-                });
+        return backend.findCredentialData(credentialId.getBytes(), userHandle.getBytes())
+                .map(data -> RegisteredCredential.builder()
+                        .credentialId(new ByteArray(data.credentialId))
+                        .userHandle(new ByteArray(data.userHandle))
+                        .publicKeyCose(new ByteArray(data.publicKey))
+                        .build());
     }
 
     @Override
     public Set<RegisteredCredential> lookupAll(ByteArray credentialId) {
-        return Optional.ofNullable(authenticators.get(credentialId))
-                .map(auth -> {
-                    UserInfo user = users.get(auth.getUsername());
-                    return RegisteredCredential.builder()
-                            .credentialId(new ByteArray(auth.getCredentialId()))
-                            .userHandle(new ByteArray(user.getUserHandle()))
-                            .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                            .build();
-                })
+        return backend.findCredentialDataByCredentialId(credentialId.getBytes())
+                .map(data -> RegisteredCredential.builder()
+                        .credentialId(new ByteArray(data.credentialId))
+                        .userHandle(new ByteArray(data.userHandle))
+                        .publicKeyCose(new ByteArray(data.publicKey))
+                        .build())
                 .stream()
                 .collect(Collectors.toSet());
-    }
-
-    // ===== データ保存・更新 =====
-
-    private void saveUser(UserInfo user) {
-        users.put(user.getUsername(), user);
-    }
-
-    private void saveAuthenticator(AuthenticatorInfo authenticator) {
-        authenticators.put(new ByteArray(authenticator.getCredentialId()), authenticator);
-
-        // ユーザーの認証器リストにも追加
-        UserInfo user = users.get(authenticator.getUsername());
-        if (user != null && user.getAuthenticators().stream()
-                .noneMatch(a -> new ByteArray(a.getCredentialId()).equals(new ByteArray(authenticator.getCredentialId())))) {
-            user.getAuthenticators().add(authenticator);
-        }
     }
 
     // ===== ヘルパーメソッド =====

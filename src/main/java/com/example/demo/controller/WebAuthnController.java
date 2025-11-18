@@ -6,6 +6,7 @@ import com.yubico.webauthn.AssertionRequest;
 import com.yubico.webauthn.data.*;
 import com.yubico.webauthn.exception.AssertionFailedException;
 import com.yubico.webauthn.exception.RegistrationFailedException;
+import jakarta.servlet.http.HttpSession;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/webauthn")
@@ -22,15 +22,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebAuthnController {
 
     private final WebAuthnService webAuthnService;
-    private final Map<String, PublicKeyCredentialCreationOptions> registrationRequests = new ConcurrentHashMap<>();
-    private final Map<String, AssertionRequest> assertionRequests = new ConcurrentHashMap<>();
+
+    private static final String REGISTRATION_REQUEST_KEY = "webauthn.registration.request";
+    private static final String ASSERTION_REQUEST_KEY = "webauthn.assertion.request";
 
     @PostMapping("/register/start")
-    public ResponseEntity<String> startRegistration(@RequestBody RegistrationStartRequest request) {
+    public ResponseEntity<String> startRegistration(@RequestBody RegistrationStartRequest request, HttpSession session) {
         try {
             PublicKeyCredentialCreationOptions options =
                     webAuthnService.startRegistration(request.getUsername());
-            registrationRequests.put(request.getUsername(), options);
+            session.setAttribute(REGISTRATION_REQUEST_KEY, options);
 
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -42,9 +43,10 @@ public class WebAuthnController {
     }
 
     @PostMapping("/register/finish")
-    public ResponseEntity<?> finishRegistration(@RequestBody RegistrationFinishRequest request) {
+    public ResponseEntity<?> finishRegistration(@RequestBody RegistrationFinishRequest request, HttpSession session) {
         try {
-            PublicKeyCredentialCreationOptions options = registrationRequests.get(request.getUsername());
+            PublicKeyCredentialCreationOptions options =
+                    (PublicKeyCredentialCreationOptions) session.getAttribute(REGISTRATION_REQUEST_KEY);
             if (options == null) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "No registration in progress"));
@@ -56,7 +58,7 @@ public class WebAuthnController {
                     request.getCredential()
             );
 
-            registrationRequests.remove(request.getUsername());
+            session.removeAttribute(REGISTRATION_REQUEST_KEY);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (RegistrationFailedException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -68,10 +70,10 @@ public class WebAuthnController {
     }
 
     @PostMapping("/authenticate/start")
-    public ResponseEntity<String> startAuthentication(@RequestBody AuthenticationStartRequest request) {
+    public ResponseEntity<String> startAuthentication(@RequestBody AuthenticationStartRequest request, HttpSession session) {
         try {
             AssertionRequest assertionRequest = webAuthnService.startAuthentication(request.getUsername());
-            assertionRequests.put(request.getUsername(), assertionRequest);
+            session.setAttribute(ASSERTION_REQUEST_KEY, assertionRequest);
 
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -83,16 +85,17 @@ public class WebAuthnController {
     }
 
     @PostMapping("/authenticate/finish")
-    public ResponseEntity<?> finishAuthentication(@RequestBody AuthenticationFinishRequest request) {
+    public ResponseEntity<?> finishAuthentication(@RequestBody AuthenticationFinishRequest request, HttpSession session) {
         try {
-            AssertionRequest assertionRequest = assertionRequests.get(request.getUsername());
+            AssertionRequest assertionRequest =
+                    (AssertionRequest) session.getAttribute(ASSERTION_REQUEST_KEY);
             if (assertionRequest == null) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "No authentication in progress"));
             }
 
             webAuthnService.finishAuthentication(assertionRequest, request.getCredential());
-            assertionRequests.remove(request.getUsername());
+            session.removeAttribute(ASSERTION_REQUEST_KEY);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (AssertionFailedException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
