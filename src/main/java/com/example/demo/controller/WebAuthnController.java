@@ -29,7 +29,7 @@ public class WebAuthnController {
     public ResponseEntity<String> startRegistration(@RequestBody RegistrationStartRequest request) {
         try {
             PublicKeyCredentialCreationOptions options =
-                    webAuthnService.startRegistration(request.getUsername(), request.getDisplayName());
+                    webAuthnService.startRegistration(request.getUsername());
             registrationRequests.put(request.getUsername(), options);
 
             return ResponseEntity.ok()
@@ -52,7 +52,6 @@ public class WebAuthnController {
 
             webAuthnService.finishRegistration(
                     request.getUsername(),
-                    request.getDisplayName(),
                     options,
                     request.getCredential()
             );
@@ -107,13 +106,11 @@ public class WebAuthnController {
     @Data
     public static class RegistrationStartRequest {
         private String username;
-        private String displayName;
     }
 
     @Data
     public static class RegistrationFinishRequest {
         private String username;
-        private String displayName;
         private PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> credential;
     }
 

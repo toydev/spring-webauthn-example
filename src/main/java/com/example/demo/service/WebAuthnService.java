@@ -19,15 +19,14 @@ public class WebAuthnService {
     private final RegistrationService registrationService;
     private final SecureRandom random;
 
-    public PublicKeyCredentialCreationOptions startRegistration(String username, String displayName) {
-        // 既存ユーザーの userHandle を取得、なければ新規生成
+    public PublicKeyCredentialCreationOptions startRegistration(String username) {
         byte[] userHandle = registrationService.getUserHandleForUsername(username)
                 .map(ByteArray::getBytes)
-                .orElseGet(() -> {
-                    byte[] newHandle = new byte[32];
-                    random.nextBytes(newHandle);
-                    return newHandle;
-                });
+                .orElseGet(this::generateUserHandle);
+
+        // displayName: 認証器の認証画面に表示されるユーザーの表示名
+        // WebAuthn仕様で必須だが、本デモでは username をそのまま使用
+        String displayName = username;
 
         UserIdentity userIdentity = UserIdentity.builder()
                 .name(username)
@@ -43,7 +42,7 @@ public class WebAuthnService {
         return relyingParty.startRegistration(options);
     }
 
-    public void finishRegistration(String username, String displayName,
+    public void finishRegistration(String username,
                                    PublicKeyCredentialCreationOptions request,
                                    PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> credential)
             throws RegistrationFailedException {
@@ -62,7 +61,7 @@ public class WebAuthnService {
                     // ここでは何もしない（認証器だけ追加）
                     return (UserInfo) null;
                 })
-                .orElseGet(() -> new UserInfo(username, displayName, request.getUser().getId().getBytes()));
+                .orElseGet(() -> new UserInfo(username, request.getUser().getId().getBytes()));
 
         // 新規ユーザーの場合のみ保存
         if (user != null) {
@@ -105,5 +104,24 @@ public class WebAuthnService {
                     result.getSignatureCount()
             );
         }
+    }
+
+    /**
+     * userHandle (user.id) を生成する。
+     *
+     * <p>WebAuthn仕様におけるユーザー識別子で、以下の特性を持つ：
+     * <ul>
+     *   <li>ユーザー識別情報を含めてはいけない（プライバシー保護のため）</li>
+     *   <li>仕様上64バイト未満のユニーク値であること</li>
+     *   <li>本実装では32バイトの乱数を使用（衝突確率は約 1/2^256 ≈ 10^-77 で天文学的に低い）</li>
+     *   <li>実プロジェクトではデータベースのUNIQUE制約で万が一の衝突を検出することを推奨</li>
+     * </ul>
+     *
+     * @return 32バイトのランダムなユーザーハンドル
+     */
+    private byte[] generateUserHandle() {
+        byte[] handle = new byte[32];
+        random.nextBytes(handle);
+        return handle;
     }
 }

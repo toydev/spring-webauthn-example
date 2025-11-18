@@ -27,10 +27,9 @@ function showMessage(elementId, message, isError = false) {
 
 async function register() {
     const username = document.getElementById('regUsername').value;
-    const displayName = document.getElementById('regDisplayName').value;
 
-    if (!username || !displayName) {
-        showMessage('regMessage', 'ユーザー名と表示名を入力してください', true);
+    if (!username) {
+        showMessage('regMessage', 'ユーザー名を入力してください', true);
         return;
     }
 
@@ -38,7 +37,7 @@ async function register() {
         const startResponse = await fetch('/api/webauthn/register/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, displayName })
+            body: JSON.stringify({ username })
         });
 
         const options = await startResponse.json();
@@ -76,7 +75,6 @@ async function register() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 username,
-                displayName,
                 credential: credentialForServer
             })
         });
