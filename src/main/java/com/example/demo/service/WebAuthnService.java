@@ -111,7 +111,6 @@ public class WebAuthnService implements CredentialRepository {
         AuthenticatorInfo authenticator = new AuthenticatorInfo(
                 result.getKeyId().getId().getBytes(),
                 result.getPublicKeyCose().getBytes(),
-                result.getSignatureCount(),
                 result.getAaguid().getBytes(),
                 username
         );
@@ -138,12 +137,7 @@ public class WebAuthnService implements CredentialRepository {
 
         AssertionResult result = relyingParty.finishAssertion(options);
 
-        if (result.isSuccess()) {
-            updateSignCount(
-                    result.getCredentialId(),
-                    result.getSignatureCount()
-            );
-        }
+        // 認証成功（特に追加処理なし）
     }
 
     // ===== CredentialRepository 実装（Yubicoライブラリが呼び出す） =====
@@ -186,7 +180,6 @@ public class WebAuthnService implements CredentialRepository {
                             .credentialId(new ByteArray(auth.getCredentialId()))
                             .userHandle(new ByteArray(user.getUserHandle()))
                             .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                            .signatureCount(auth.getSignCount())
                             .build();
                 });
     }
@@ -200,7 +193,6 @@ public class WebAuthnService implements CredentialRepository {
                             .credentialId(new ByteArray(auth.getCredentialId()))
                             .userHandle(new ByteArray(user.getUserHandle()))
                             .publicKeyCose(new ByteArray(auth.getPublicKey()))
-                            .signatureCount(auth.getSignCount())
                             .build();
                 })
                 .stream()
@@ -221,13 +213,6 @@ public class WebAuthnService implements CredentialRepository {
         if (user != null && user.getAuthenticators().stream()
                 .noneMatch(a -> new ByteArray(a.getCredentialId()).equals(new ByteArray(authenticator.getCredentialId())))) {
             user.getAuthenticators().add(authenticator);
-        }
-    }
-
-    private void updateSignCount(ByteArray credentialId, long signCount) {
-        AuthenticatorInfo auth = authenticators.get(credentialId);
-        if (auth != null) {
-            auth.setSignCount(signCount);
         }
     }
 

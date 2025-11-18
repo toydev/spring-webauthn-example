@@ -17,7 +17,6 @@ import lombok.Data;
 public class AuthenticatorInfo {
     private byte[] credentialId;  // 必須：認証時に使用する鍵を特定（長さは認証器依存で可変）
     private byte[] publicKey;     // 必須：署名検証に使用する公開鍵（COSE形式、長さはアルゴリズム依存）
-    private long signCount;       // 推奨：認証器のクローン検出用（認証のたびにインクリメント）
     private byte[] aaguid;        // 任意：認証器モデルのUUID（16バイト固定、FIDO MDS参照で名前取得可）
     private String username;      // 必須：credentialId → UserInfo の逆引き用
 }
