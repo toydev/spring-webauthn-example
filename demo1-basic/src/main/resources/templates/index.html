@@ -3,83 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAuthn デモ - 基本</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-        }
-        .container {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #333;
-        }
-        h2 {
-            color: #666;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 10px;
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #0056b3;
-        }
-        .message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .info {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            color: #004085;
-        }
-    </style>
+    <title>WebAuthn デモ</title>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <h1>WebAuthn デモアプリケーション - 基本</h1>
-
-    <div class="info">
-        <strong>このデモについて</strong><br>
-        WebAuthnの本質的な機能（登録と認証）のみを実装しています。<br>
-        セッション管理や認証器の一覧表示などの機能は含まれていません。
-    </div>
+    <h1>WebAuthn デモ</h1>
 
     <div class="container">
         <h2>新規登録</h2>
-        <p>新しいユーザーとして登録し、認証器（指紋、顔認証、セキュリティキーなど）を登録します。</p>
         <input type="text" id="regUsername" placeholder="ユーザー名">
         <button onclick="register()">登録</button>
         <div id="regMessage"></div>
@@ -87,7 +18,6 @@
 
     <div class="container">
         <h2>認証（ログイン）</h2>
-        <p>登録済みのユーザー名で認証を行います。</p>
         <input type="text" id="authUsername" placeholder="ユーザー名">
         <button onclick="authenticate()">認証</button>
         <div id="authMessage"></div>
