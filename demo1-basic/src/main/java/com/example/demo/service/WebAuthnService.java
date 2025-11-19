@@ -52,6 +52,9 @@ public class WebAuthnService implements CredentialRepository {
 
     // ===== WebAuthn登録・認証フロー =====
 
+    /**
+     * 登録開始: クライアントに送信する認証器登録オプションを生成する
+     */
     public PublicKeyCredentialCreationOptions startRegistration(String username) {
         ByteArray userHandle = getUserHandleForUsername(username)
                 .orElseGet(() -> new ByteArray(generateUserHandle()));
@@ -74,6 +77,9 @@ public class WebAuthnService implements CredentialRepository {
         return relyingParty.startRegistration(options);
     }
 
+    /**
+     * 登録完了: クライアントから受け取った認証器情報を検証・保存する
+     */
     public void finishRegistration(String username,
                                    PublicKeyCredentialCreationOptions request,
                                    PublicKeyCredential<AuthenticatorAttestationResponse, ClientRegistrationExtensionOutputs> credential)
@@ -113,6 +119,9 @@ public class WebAuthnService implements CredentialRepository {
         backend.saveAuthenticator(authenticator);
     }
 
+    /**
+     * 認証開始: クライアントに送信する認証オプションを生成する
+     */
     public AssertionRequest startAuthentication(String username) {
         StartAssertionOptions options = StartAssertionOptions.builder()
                 .username(username)
@@ -121,6 +130,9 @@ public class WebAuthnService implements CredentialRepository {
         return relyingParty.startAssertion(options);
     }
 
+    /**
+     * 認証完了: クライアントから受け取った署名を検証し、認証されたユーザー名を返す
+     */
     public String finishAuthentication(AssertionRequest request,
                                        PublicKeyCredential<AuthenticatorAssertionResponse, ClientAssertionExtensionOutputs> credential)
             throws AssertionFailedException {

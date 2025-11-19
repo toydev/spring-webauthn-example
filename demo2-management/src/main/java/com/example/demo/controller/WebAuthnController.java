@@ -25,6 +25,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * WebAuthn デモ - 認証器管理
+ *
+ * <p>このコントローラーはWebAuthnの実用的な実装を提供します：
+ * <ul>
+ *   <li>新規ユーザー登録（Registration）</li>
+ *   <li>認証（Authentication）</li>
+ *   <li>セッション管理（アプリケーション層）</li>
+ *   <li>認証器の一覧表示・削除（アプリケーション層）</li>
+ *   <li>デバイス名の設定・表示（アプリケーション層）</li>
+ * </ul>
+ */
 @Controller
 @RequiredArgsConstructor
 public class WebAuthnController {
@@ -38,6 +50,9 @@ public class WebAuthnController {
 
     // ===== 画面表示 =====
 
+    /**
+     * メイン画面: 未認証時は登録・認証フォーム、認証済み時は認証器管理画面を表示
+     */
     @GetMapping("/")
     public String index(HttpSession session, Model model) {
         String username = (String) session.getAttribute(SESSION_USERNAME_KEY);
@@ -61,6 +76,9 @@ public class WebAuthnController {
         return "index";
     }
 
+    /**
+     * 認証器削除: 指定された認証器を削除（アプリケーション層の機能）
+     */
     @PostMapping("/authenticator/delete")
     public String deleteAuthenticator(
             @RequestParam String credentialId,
@@ -89,6 +107,9 @@ public class WebAuthnController {
         return "redirect:/";
     }
 
+    /**
+     * ログアウト: セッションを破棄（アプリケーション層の機能）
+     */
     @PostMapping("/logout")
     public String logout(HttpSession session, RedirectAttributes redirectAttributes) {
         session.invalidate();
@@ -98,12 +119,17 @@ public class WebAuthnController {
 
     // ===== WebAuthn API =====
 
+    /**
+     * 登録開始: チャレンジとオプションを生成してクライアントに返す
+     */
     @PostMapping("/api/webauthn/register/start")
     @ResponseBody
     public ResponseEntity<String> startRegistration(@RequestBody RegistrationStartRequest request, HttpSession session) {
         try {
             PublicKeyCredentialCreationOptions options =
                     webAuthnService.startRegistration(request.getUsername());
+
+            // チャレンジを検証するため、セッションに保存
             session.setAttribute(REGISTRATION_REQUEST_KEY, options);
 
             return ResponseEntity.ok()
@@ -115,6 +141,9 @@ public class WebAuthnController {
         }
     }
 
+    /**
+     * 登録完了: クライアントから受け取った認証器情報を検証・保存
+     */
     @PostMapping("/api/webauthn/register/finish")
     @ResponseBody
     public ResponseEntity<?> finishRegistration(@RequestBody RegistrationFinishRequest request, HttpSession session) {
@@ -144,11 +173,16 @@ public class WebAuthnController {
         }
     }
 
+    /**
+     * 認証開始: チャレンジと許可する認証器のリストをクライアントに返す
+     */
     @PostMapping("/api/webauthn/authenticate/start")
     @ResponseBody
     public ResponseEntity<String> startAuthentication(@RequestBody AuthenticationStartRequest request, HttpSession session) {
         try {
             AssertionRequest assertionRequest = webAuthnService.startAuthentication(request.getUsername());
+
+            // チャレンジを検証するため、セッションに保存
             session.setAttribute(ASSERTION_REQUEST_KEY, assertionRequest);
 
             return ResponseEntity.ok()
@@ -160,6 +194,9 @@ public class WebAuthnController {
         }
     }
 
+    /**
+     * 認証完了: クライアントから受け取った署名を検証し、セッションを確立
+     */
     @PostMapping("/api/webauthn/authenticate/finish")
     @ResponseBody
     public ResponseEntity<?> finishAuthentication(@RequestBody AuthenticationFinishRequest request, HttpSession session) {
