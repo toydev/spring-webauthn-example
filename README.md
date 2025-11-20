@@ -21,10 +21,11 @@ WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を�
 
 ### 1. OS/ブラウザが提供
 
-クライアント側のデバイス認証機能は、OS・ブラウザに組み込まれています。
+クライアント側のデバイス認証機能とUIは、OS・ブラウザに組み込まれています。
 
 - 実装: `navigator.credentials.create()` / `navigator.credentials.get()` を呼ぶだけ
-- 役割: 指紋認証、顔認証、セキュリティキーなどのデバイス認証処理
+- 役割: 指紋認証、顔認証、セキュリティキーなどのデバイス認証処理と画面表示
+- カスタマイズ: UIのデザイン・動作は変更不可。調整できるのはAPIパラメータのみ
 - ブラウザサポート状況: [Can I use - Web Authentication API](https://caniuse.com/webauthn)
 
 ### 2. Yubico webauthn-server-core が提供
