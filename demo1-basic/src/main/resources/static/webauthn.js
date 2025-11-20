@@ -48,7 +48,7 @@ async function register() {
         }
 
         options.user.id = base64urlToBuffer(options.user.id);
-        // challenge: リプレイ攻撃を防ぐためのワンタイムトークン（サーバが生成、ライブラリが自動検証）
+        // challenge: リプレイ攻撃を防ぐためのワンタイムトークン（サーバが生成、認証器が署名、サーバが検証）
         options.challenge = base64urlToBuffer(options.challenge);
 
         if (options.excludeCredentials) {
@@ -116,7 +116,7 @@ async function authenticate() {
 
         const publicKey = options.publicKeyCredentialRequestOptions;
 
-        // challenge: リプレイ攻撃を防ぐためのワンタイムトークン（サーバが生成、ライブラリが自動検証）
+        // challenge: リプレイ攻撃を防ぐためのワンタイムトークン（サーバが生成、認証器が署名、サーバが検証）
         publicKey.challenge = base64urlToBuffer(publicKey.challenge);
         publicKey.allowCredentials = publicKey.allowCredentials.map(cred => {
             const cleanCred = {
