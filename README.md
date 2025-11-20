@@ -5,12 +5,15 @@ WebAuthnをSpring Bootアプリケーションに組み込むための実装サ�
 ## WebAuthnとは
 
 WebAuthnの本質は、**認証器によるcredentialの登録とそれを使った認証**です。
+認証器はデバイス（PC、スマートフォン、物理セキュリティキーなど）に搭載されており、
+Windows Hello、Touch ID/Face ID、YubiKeyなどの形で提供されます。
 
 - デバイス側とサーバ側がcredentialを対で持ち、署名検証が成功することで認証が成立します
 - デバイス側: 秘密鍵（デバイス内に保管）
 - サーバ側: 公開鍵、Credential ID（データベースに保管）
 
-credentialの削除はWebAuthn仕様の範疇外です。デバイス側ではOS/ブラウザの設定から、サーバ側では単にデータベースから公開鍵とCredential IDを消すだけの操作になります。
+credentialの削除はWebAuthn仕様の範疇外です。
+デバイス側ではOS/ブラウザの設定から、サーバ側では単にデータベースから公開鍵とCredential IDを消すだけの操作になります。
 
 ## WebAuthn実装における責任分担
 
