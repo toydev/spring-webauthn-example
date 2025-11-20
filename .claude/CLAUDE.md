@@ -105,8 +105,8 @@ WebAuthn仕様とアプリケーション層の責任分離を理解する。
 ## 現在の構成
 
 ### バックエンド
-- Spring Boot 3.5.7 + Java 21
-- Yubico webauthn-server-core 2.5.2
+- Spring Boot 3.3.4 + Java 21
+- Yubico webauthn-server-core 2.7.0
 - インメモリデータベース（デモ用）
 
 ### フロントエンド
