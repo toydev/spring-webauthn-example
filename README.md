@@ -40,10 +40,13 @@ WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を�
 
 Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分で実装します。
 
+**クライアント側（JavaScript）:**
+- WebAuthn APIの呼び出し: `navigator.credentials.create()` / `navigator.credentials.get()`
+- サーバとの通信処理
+
+**サーバ側:**
 - credentialの保管: 公開鍵、Credential ID、ユーザー情報などの永続化
 - Webフレームワークへの統合: REST APIエンドポイント、セッション管理など
-
-このデモでは、Spring Bootへの統合例とcredentialの保管実装（インメモリDB）を提供しています。
 
 ---
 
@@ -55,27 +58,16 @@ Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分�
 
 WebAuthn仕様で定義されているコア機能のみを実装。
 
-含まれる機能:
 - ユーザー登録（Registration）
 - 認証（Authentication）
-
-含まれない機能:
-- セッション管理（アプリケーション層の機能）
-- 認証器の一覧表示・削除（アプリケーション層の機能）
-- デバイス名管理（アプリケーション層の機能）
 
 ### demo2-management - 実用的な実装
 
-実際のサービスで必要となる認証器管理機能を含む実装。
+demo1のWebAuthnコア機能に、実際のサービスで必要となる周辺機能を追加した実装。
 
-含まれる機能:
-- ユーザー登録（Registration）
-- 認証（Authentication）
-- セッション管理
-- 認証器の一覧表示
-- 認証器の削除
+demo1への追加機能:
+- 認証器の一覧表示と削除
 - デバイス名の設定・表示
-- 複数認証器の管理
 
 demo1とdemo2を比較することで、WebAuthn仕様とアプリケーション層の責任分離を理解できます。
 
@@ -86,7 +78,6 @@ demo1とdemo2を比較することで、WebAuthn仕様とアプリケーショ�
 ### バックエンド
 - Spring Boot 3.3.4 + Java 21
 - Yubico webauthn-server-core 2.7.0 - WebAuthn Relying Party実装
-- インメモリデータベース（デモ用）
 
 ### フロントエンド
 - Vanilla JavaScript（ライブラリ不使用）
@@ -97,32 +88,37 @@ demo1とdemo2を比較することで、WebAuthn仕様とアプリケーショ�
 
 ## 開発環境
 
-- Java 21以降
-- Maven 3.6以降
+- **JDK 21以降**
+  - `PATH` に追加するか、`JAVA_HOME` 環境変数を設定してください
+  - 確認方法: `java -version` でバージョンが表示されること
+- Maven（各デモに同梱の `mvnw` / `mvnw.cmd` を使用するため不要）
 
 ---
 
 ## 実行方法
 
+### コマンドライン（Windows）
+
 各デモは独立したSpring Bootアプリケーションです。
 
-### demo1-basicを実行
-
-```bash
+**demo1-basicを実行:**
+```cmd
 cd demo1-basic
-./mvnw spring-boot:run
+mvnw.cmd spring-boot:run
 ```
 
-ブラウザで http://localhost:8080 を開く
-
-### demo2-managementを実行
-
-```bash
+**demo2-managementを実行:**
+```cmd
 cd demo2-management
-./mvnw spring-boot:run
+mvnw.cmd spring-boot:run
 ```
 
 ブラウザで http://localhost:8080 を開く
+
+### Eclipseでのインポートと実行
+
+1. **インポート**: `File` → `Import` → `Existing Projects into Workspace` → 各デモフォルダを選択
+2. **実行**: プロジェクトを右クリック → `Run As` → `Spring Boot App`
 
 ---
 
@@ -140,7 +136,7 @@ demo1-basic/ または demo2-management/
 │   │   │   ├── service/
 │   │   │   │   └── WebAuthnService.java       # WebAuthn ビジネスロジック
 │   │   │   ├── backend/
-│   │   │   │   ├── WebAuthnBackend.java       # データアクセス層
+│   │   │   │   ├── WebAuthnBackend.java       # データアクセス層（本デモではMap実装）
 │   │   │   │   ├── UserInfo.java              # ユーザー情報
 │   │   │   │   └── AuthenticatorInfo.java     # 認証器情報
 │   │   │   └── DemoApplication.java
@@ -153,6 +149,9 @@ demo1-basic/ または demo2-management/
 │   └── test/
 └── pom.xml
 ```
+
+本デモのデータ保管は`ConcurrentHashMap`によるインメモリ実装です。
+実プロジェクトでは状況に応じたデータストア処理に置き換えてください。
 
 ---
 
