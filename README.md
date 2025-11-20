@@ -1,43 +1,69 @@
 # WebAuthn デモプロジェクト
 
-WebAuthn（Web Authentication API）の本質を理解するための段階的なデモ集です。
+WebAuthnをSpring Bootアプリケーションに組み込むための実装サンプルです。
 
-## プロジェクト構成
+## WebAuthn実装における責任分担
 
-このリポジトリには、学習の進行度に応じた2つの独立したデモが含まれています：
+WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を持ちます。
 
-### 📌 [demo1-basic](./demo1-basic/) - WebAuthn の本質
+### 1. OS/ブラウザが提供（既に実装済み）
 
-**目的**: WebAuthn APIの最小限の実装を通じて、本質的な仕組みを理解する
+クライアント側のデバイス認証機能は、OS・ブラウザに組み込まれています。
 
-**含まれる機能**:
-- ✅ ユーザー登録（Registration）
-- ✅ 認証（Authentication）
+- **実装**: `navigator.credentials.create()` / `navigator.credentials.get()` を呼ぶだけ
+- **役割**: 指紋認証、顔認証、セキュリティキーなどのデバイス認証処理
+- **ブラウザサポート**: [Can I use - Web Authentication API](https://caniuse.com/webauthn)
 
-**含まれない機能**:
-- ❌ セッション管理
-- ❌ 認証器の一覧表示
-- ❌ 認証器の削除
-- ❌ デバイス名の設定
+### 2. Yubico webauthn-server-core が提供
 
-**ポイント**: WebAuthn仕様で定義されているコア機能のみを実装。アプリケーション層の機能は一切含めていません。
+サーバ側のWebAuthn処理を担うライブラリです。**Webフレームワーク非依存**で動作します。
+
+- **リクエストデータの生成**: 登録・認証開始時にクライアントへ送信するデータを生成
+- **応答の検証**: クライアントから受け取った署名などを検証
+- **通信データの定義**: サーバ・クライアント間のリクエスト/レスポンス構造
+
+### 3. 開発者が実装する必要があるもの
+
+Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分で実装します。
+
+- **認証情報の保管**: 公開鍵、Credential ID、ユーザー情報などの永続化
+- **Webフレームワークへの統合**: REST APIエンドポイント、セッション管理など
+
+このデモでは、Spring Bootへの統合例と認証情報の保管実装（インメモリDB）を提供しています。
 
 ---
 
-### 📌 [demo2-management](./demo2-management/) - 認証器管理
+## プロジェクト構成
 
-**目的**: 実用的なWebAuthnアプリケーションの実装パターンを学ぶ
+このリポジトリには、段階的に理解できる2つの独立したデモが含まれています。
+
+### demo1-basic - WebAuthnのコア機能のみ
+
+WebAuthn仕様で定義されているコア機能のみを実装。
 
 **含まれる機能**:
-- ✅ ユーザー登録（Registration）
-- ✅ 認証（Authentication）
-- ✅ セッション管理
-- ✅ 認証器の一覧表示
-- ✅ 認証器の削除
-- ✅ **デバイス名の設定・表示**
-- ✅ 複数認証器の管理
+- ユーザー登録（Registration）
+- 認証（Authentication）
 
-**ポイント**: GoogleやGitHubなどの実サービスに近い実装。WebAuthn仕様と、アプリケーション層の機能の違いを明確に理解できます。
+**含まれない機能**:
+- セッション管理（アプリケーション層の機能）
+- 認証器の一覧表示・削除（アプリケーション層の機能）
+- デバイス名管理（アプリケーション層の機能）
+
+### demo2-management - 実用的な実装
+
+実際のサービスで必要となる認証器管理機能を含む実装。
+
+**含まれる機能**:
+- ユーザー登録（Registration）
+- 認証（Authentication）
+- セッション管理
+- 認証器の一覧表示
+- 認証器の削除
+- デバイス名の設定・表示
+- 複数認証器の管理
+
+demo1とdemo2を比較することで、WebAuthn仕様とアプリケーション層の責任分離を理解できます。
 
 ---
 
@@ -45,24 +71,20 @@ WebAuthn（Web Authentication API）の本質を理解するための段階的�
 
 ### バックエンド
 - **Spring Boot 3.3.4** + Java 21
-- **Yubico webauthn-server-core 2.7.0** (WebAuthn Relying Party 実装)
+- **Yubico webauthn-server-core 2.7.0** - WebAuthn Relying Party実装
 - インメモリデータベース（デモ用）
 
 ### フロントエンド
 - Vanilla JavaScript（ライブラリ不使用）
-- WebAuthn API直接呼び出し
-- Thymeleaf（サーバーサイドテンプレート）
+- Web Authentication API
+- Thymeleaf
 
 ---
 
 ## 開発環境
 
-### 必須
 - Java 21以降
 - Maven 3.6以降
-
-### 推奨
-- Eclipse（各プロジェクトは独立したEclipseプロジェクトとしてインポート可能）
 
 ---
 
@@ -90,62 +112,6 @@ cd demo2-management
 
 ---
 
-## 学習の進め方
-
-### 1. demo1-basicから始める
-
-まずは最小限の実装でWebAuthnの流れを理解しましょう：
-
-1. ユーザー登録フローを実際に試す
-2. 認証フローを試す
-3. ブラウザの開発者ツールでネットワーク通信を観察する
-4. バックエンドのコードを読む（特に`WebAuthnService.java`）
-
-**重要なポイント**:
-- `PublicKeyCredentialCreationOptions` の構造
-- `challenge` の役割（リプレイ攻撃対策）
-- `userHandle` と `username` の違い
-- 公開鍵暗号による署名検証の流れ
-
-### 2. demo2-managementで実用パターンを学ぶ
-
-次に、実用的なアプリケーションの実装を学びましょう：
-
-1. セッション管理の実装方法
-2. 複数認証器の管理
-3. デバイス名などのメタデータ管理
-4. WebAuthn仕様とアプリケーション層の責任分離
-
-**比較してみよう**:
-- demo1-basicとdemo2-managementのコードを見比べる
-- どの機能がWebAuthn仕様で、どれがアプリケーション層か区別する
-
----
-
-## プロジェクトの設計思想
-
-### シンプルさを最優先
-
-- 不要な抽象化を排除
-- WebAuthnの本質に集中
-- 理解しやすく、学習しやすいコード
-
-### ポータビリティ
-
-- 実プロジェクトへの転用が容易
-- グローバルな設定に依存しない
-- WebAuthn固有の処理を局所化
-
-### 本質の理解
-
-- WebAuthn仕様の理解が深まる実装
-- ライブラリの正しい使い方を示す
-- 動作する最小限のコード
-
-詳細は [.claude/CLAUDE.md](./.claude/CLAUDE.md) を参照してください。
-
----
-
 ## コード構成
 
 各デモプロジェクトは以下の構成です：
@@ -168,6 +134,7 @@ demo1-basic/ または demo2-management/
 │   │       ├── templates/
 │   │       │   └── index.html                  # Thymeleafテンプレート
 │   │       └── static/
+│   │           ├── style.css                   # スタイルシート
 │   │           └── webauthn.js                 # WebAuthn クライアント実装
 │   └── test/
 └── pom.xml
@@ -180,6 +147,7 @@ demo1-basic/ または demo2-management/
 - [W3C WebAuthn仕様](https://www.w3.org/TR/webauthn-2/)
 - [Yubico webauthn-server-core](https://github.com/Yubico/java-webauthn-server)
 - [MDN Web Authentication API](https://developer.mozilla.org/ja/docs/Web/API/Web_Authentication_API)
+- [Can I use - Web Authentication API](https://caniuse.com/webauthn)
 - [WebAuthn.io](https://webauthn.io/) - インタラクティブデモ
 
 ---
@@ -187,9 +155,3 @@ demo1-basic/ または demo2-management/
 ## ライセンス
 
 このデモプロジェクトはMITライセンスで公開されています。
-
----
-
-## 貢献
-
-このプロジェクトは学習目的のデモです。Issue や Pull Request は歓迎します。
