@@ -2,6 +2,16 @@
 
 WebAuthnをSpring Bootアプリケーションに組み込むための実装サンプルです。
 
+## WebAuthnとは
+
+WebAuthnの本質は、**認証器によるcredentialの登録とそれを使った認証**です。
+
+- デバイス側とサーバ側がcredentialを対で持ち、それが一致することで認証が成立します
+- デバイス側: 秘密鍵（デバイス内に保管）
+- サーバ側: 公開鍵、Credential ID（データベースに保管）
+
+credentialの削除はデバイス側とサーバ側それぞれで可能ですが、サーバ側の削除はWebAuthn仕様の範疇外です。単にデータベースから公開鍵とCredential IDを消すだけの操作になります。
+
 ## WebAuthn実装における責任分担
 
 WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を持ちます。
@@ -26,10 +36,10 @@ WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を�
 
 Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分で実装します。
 
-- 認証情報の保管: 公開鍵、Credential ID、ユーザー情報などの永続化
+- credentialの保管: 公開鍵、Credential ID、ユーザー情報などの永続化
 - Webフレームワークへの統合: REST APIエンドポイント、セッション管理など
 
-このデモでは、Spring Bootへの統合例と認証情報の保管実装（インメモリDB）を提供しています。
+このデモでは、Spring Bootへの統合例とcredentialの保管実装（インメモリDB）を提供しています。
 
 ---
 
