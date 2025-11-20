@@ -6,28 +6,28 @@ WebAuthnをSpring Bootアプリケーションに組み込むための実装サ�
 
 WebAuthnの実装では、以下の3つの層がそれぞれ異なる責任を持ちます。
 
-### 1. OS/ブラウザが提供（既に実装済み）
+### 1. OS/ブラウザが提供
 
 クライアント側のデバイス認証機能は、OS・ブラウザに組み込まれています。
 
-- **実装**: `navigator.credentials.create()` / `navigator.credentials.get()` を呼ぶだけ
-- **役割**: 指紋認証、顔認証、セキュリティキーなどのデバイス認証処理
-- **ブラウザサポート**: [Can I use - Web Authentication API](https://caniuse.com/webauthn)
+- 実装: `navigator.credentials.create()` / `navigator.credentials.get()` を呼ぶだけ
+- 役割: 指紋認証、顔認証、セキュリティキーなどのデバイス認証処理
+- ブラウザサポート状況: [Can I use - Web Authentication API](https://caniuse.com/webauthn)
 
 ### 2. Yubico webauthn-server-core が提供
 
 サーバ側のWebAuthn処理を担うライブラリです。**Webフレームワーク非依存**で動作します。
 
-- **リクエストデータの生成**: 登録・認証開始時にクライアントへ送信するデータを生成
-- **応答の検証**: クライアントから受け取った署名などを検証
-- **通信データの定義**: サーバ・クライアント間のリクエスト/レスポンス構造
+- リクエストデータの生成: 登録・認証開始時にクライアントへ送信するデータを生成
+- 応答の検証: クライアントから受け取った署名などを検証
+- 通信データの定義: サーバ・クライアント間のリクエスト/レスポンス構造
 
 ### 3. 開発者が実装する必要があるもの
 
 Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分で実装します。
 
-- **認証情報の保管**: 公開鍵、Credential ID、ユーザー情報などの永続化
-- **Webフレームワークへの統合**: REST APIエンドポイント、セッション管理など
+- 認証情報の保管: 公開鍵、Credential ID、ユーザー情報などの永続化
+- Webフレームワークへの統合: REST APIエンドポイント、セッション管理など
 
 このデモでは、Spring Bootへの統合例と認証情報の保管実装（インメモリDB）を提供しています。
 
@@ -41,11 +41,11 @@ Yubico webauthn-server-coreは汎用ライブラリのため、以下は自分�
 
 WebAuthn仕様で定義されているコア機能のみを実装。
 
-**含まれる機能**:
+含まれる機能:
 - ユーザー登録（Registration）
 - 認証（Authentication）
 
-**含まれない機能**:
+含まれない機能:
 - セッション管理（アプリケーション層の機能）
 - 認証器の一覧表示・削除（アプリケーション層の機能）
 - デバイス名管理（アプリケーション層の機能）
@@ -54,7 +54,7 @@ WebAuthn仕様で定義されているコア機能のみを実装。
 
 実際のサービスで必要となる認証器管理機能を含む実装。
 
-**含まれる機能**:
+含まれる機能:
 - ユーザー登録（Registration）
 - 認証（Authentication）
 - セッション管理
@@ -70,8 +70,8 @@ demo1とdemo2を比較することで、WebAuthn仕様とアプリケーショ�
 ## 技術スタック
 
 ### バックエンド
-- **Spring Boot 3.3.4** + Java 21
-- **Yubico webauthn-server-core 2.7.0** - WebAuthn Relying Party実装
+- Spring Boot 3.3.4 + Java 21
+- Yubico webauthn-server-core 2.7.0 - WebAuthn Relying Party実装
 - インメモリデータベース（デモ用）
 
 ### フロントエンド
