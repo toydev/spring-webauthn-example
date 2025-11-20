@@ -4,7 +4,7 @@ WebAuthn（Web Authentication API）の本質を理解するための段階的�
 
 ## プロジェクト構成
 
-このリポジトリには、学習の進行度に応じた3つの独立したデモが含まれています：
+このリポジトリには、学習の進行度に応じた2つの独立したデモが含まれています：
 
 ### 📌 [demo1-basic](./demo1-basic/) - WebAuthn の本質
 
@@ -41,21 +41,11 @@ WebAuthn（Web Authentication API）の本質を理解するための段階的�
 
 ---
 
-### 📌 demo3-mfa - 多要素認証（未実装）
-
-**目的**: 2段階認証（2FA）のパターンを学ぶ
-
-**予定される機能**:
-- パスワード + WebAuthn
-- パスワードレスWebAuthn + バックアップパスワード
-
----
-
 ## 技術スタック
 
 ### バックエンド
-- **Spring Boot 3.5.7** + Java 21
-- **Yubico webauthn-server-core 2.5.2** (WebAuthn Relying Party 実装)
+- **Spring Boot 3.3.4** + Java 21
+- **Yubico webauthn-server-core 2.7.0** (WebAuthn Relying Party 実装)
 - インメモリデータベース（デモ用）
 
 ### フロントエンド
@@ -129,10 +119,6 @@ cd demo2-management
 **比較してみよう**:
 - demo1-basicとdemo2-managementのコードを見比べる
 - どの機能がWebAuthn仕様で、どれがアプリケーション層か区別する
-
-### 3. demo3-mfaで多要素認証を学ぶ（未実装）
-
-2段階認証のパターンを理解しましょう。
 
 ---
 
